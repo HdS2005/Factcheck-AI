@@ -12,12 +12,6 @@ Marketing, research, and business documents often contain outdated statistics, h
 
 ---
 
-## Live App
-
-**Try it here →** https://your-app-url.streamlit.app
-
----
-
 ## How It Works
 
 1. **Upload** – Upload any PDF document.
