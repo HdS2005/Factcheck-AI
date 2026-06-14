@@ -1,9 +1,10 @@
 import streamlit as st
 import pdfplumber
-import google.generativeai as genai
+from groq import Groq
 import requests
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 1. Page Configuration
 st.set_page_config(page_title="FactCheck AI", page_icon="✓", layout="wide")
@@ -262,16 +263,28 @@ html, body, [data-testid="stAppViewContainer"] {
 
 
 # 3. Keys Check
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
 SERPER_API_KEY = st.secrets.get("SERPER_API_KEY", os.getenv("SERPER_API_KEY", ""))
 
-if not GEMINI_API_KEY or not SERPER_API_KEY:
+if not GROQ_API_KEY or not SERPER_API_KEY:
     st.error("Infrastructure Configuration Error: Verify execution API tokens.")
     st.stop()
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.0-flash")
+client = Groq(api_key=GROQ_API_KEY)
 
+def ask_groq(prompt):
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0
+    )
+
+    return response.choices[0].message.content.strip()
 
 # 4. Core Logic Functions
 def extract_text(pdf_file):
@@ -283,12 +296,38 @@ def extract_text(pdf_file):
     return text.strip()
 
 def extract_claims(text):
-    prompt = f"""You are a fact-checking assistant. Extract all specific, verifiable claims from this document.
-Focus on: statistics, percentages, dates, financial figures, scientific facts, named events, technical data.
-Ignore generic opinions. Return ONLY a valid JSON array of strings.
-Document: {text[:6000]}
-JSON:"""
-    raw = model.generate_content(prompt).text.strip().replace("```json","").replace("```","").strip()
+    prompt = f"""
+You are a fact-checking assistant.
+
+Extract all specific, verifiable claims from this document.
+
+Focus on:
+- statistics
+- percentages
+- dates
+- financial figures
+- scientific facts
+- named events
+- technical data
+
+Ignore opinions.
+
+Return ONLY a valid JSON array.
+
+Example:
+[
+    "Claim 1",
+    "Claim 2"
+]
+
+Document:
+{text[:6000]}
+"""
+
+    raw = ask_groq(prompt)
+
+    raw = raw.replace("```json", "").replace("```", "").strip()
+
     return json.loads(raw)
 
 def search_web(query):
@@ -301,11 +340,33 @@ def search_web(query):
         return ""
 
 def verify_claim(claim, snippets):
-    prompt = f"""Fact-check this claim using the web results below.
-Claim: "{claim}"
-Web results: {snippets}
-Respond ONLY with JSON: {{"verdict": "Verified"|"Inaccurate"|"Unverifiable", "explanation": "one sentence"}}"""
-    raw = model.generate_content(prompt).text.strip().replace("```json","").replace("```","").strip()
+    prompt = f"""
+Fact-check this claim using the web results below.
+
+Claim:
+"{claim}"
+
+Web Results:
+{snippets}
+
+Return ONLY valid JSON.
+
+Example:
+{{
+    "verdict": "Verified",
+    "explanation": "one sentence"
+}}
+
+Possible verdicts:
+- Verified
+- Inaccurate
+- Unverifiable
+"""
+
+    raw = ask_groq(prompt)
+
+    raw = raw.replace("```json", "").replace("```", "").strip()
+
     return json.loads(raw)
 
 
@@ -339,19 +400,40 @@ with center_col:
                 st.stop()
 
             # Sequential thread run loop
-            results, progress = [], st.progress(0)
-            for i, claim in enumerate(claims):
-                with st.spinner(f"Verifying entry {i+1} of {len(claims)}..."):
-                    try:
-                        vdata = verify_claim(claim, search_web(claim))
-                        results.append({
-                            "claim": claim, 
-                            "verdict": vdata.get("verdict","Unverifiable"), 
-                            "explanation": vdata.get("explanation","")
-                        })
-                    except Exception:
-                        results.append({"claim": claim, "verdict": "Unverifiable", "explanation": "System runtime checking timeout."})
-                progress.progress((i + 1) / len(claims))
+            results = []
+            progress = st.progress(0)
+
+            def process_claim(claim):
+                try:
+                    snippets = search_web(claim)
+                    vdata = verify_claim(claim, snippets)
+
+                    return {
+                        "claim": claim,
+                        "verdict": vdata.get("verdict", "Unverifiable"),
+                        "explanation": vdata.get("explanation", "")
+                    }
+
+                except Exception:
+                    return {
+                        "claim": claim,
+                        "verdict": "Unverifiable",
+                        "explanation": "System runtime checking timeout."
+                    }
+
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [
+                    executor.submit(process_claim, claim)
+                    for claim in claims
+                ]
+
+                completed = 0
+
+                for future in as_completed(futures):
+                    results.append(future.result())
+
+                    completed += 1
+                    progress.progress(completed / len(claims))
 
             v_count = sum(1 for r in results if r["verdict"] == "Verified")
             i_count = sum(1 for r in results if r["verdict"] == "Inaccurate")
