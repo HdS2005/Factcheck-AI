@@ -3,51 +3,101 @@
 > Built as part of the CogCulture Product Management Assessment
 
 ## The Problem
-Marketing and research documents frequently contain outdated statistics, hallucinated figures, or unverified claims. Manually fact-checking these is slow, inconsistent, and often skipped entirely.
+
+Marketing, research, and business documents often contain outdated statistics, hallucinated figures, or unverified claims. Manually fact-checking them is time-consuming, inconsistent, and prone to oversight.
 
 ## The Solution
-Veridox is a web app that acts as a "Truth Layer" — upload any PDF and it automatically extracts every factual claim, cross-references it against live web data, and flags what's wrong before it reaches your audience.
+
+**FactCheck AI** acts as a "Truth Layer" for documents. Users can upload any PDF, and the system automatically extracts factual claims, cross-references them against live web sources, and highlights potentially inaccurate information before it reaches stakeholders or audiences.
+
+---
 
 ## Live App
-**[Try it here →](https://your-app-url.streamlit.app)**
+
+**Try it here →** https://your-app-url.streamlit.app
+
+---
 
 ## How It Works
-1. **Upload** — User uploads any PDF document
-2. **Extract** — Gemini AI reads the document and identifies all specific, verifiable claims (stats, dates, figures, named events)
-3. **Verify** — Each claim is searched on the live web via Serper API
-4. **Report** — Every claim is flagged as:
-   - Verified — matches live web data
-   - Inaccurate — figure is outdated or wrong (correct figure shown)
-   - Unverifiable — no supporting evidence found
+
+1. **Upload** – Upload any PDF document.
+2. **Extract** – AI identifies specific, verifiable claims such as statistics, dates, financial figures, scientific facts, and named events.
+3. **Search** – Each claim is cross-referenced against live web results using Serper API.
+4. **Verify** – Claims are classified into one of three categories:
+
+   * ✅ **Verified** – Matches current web evidence.
+   * ⚠️ **Inaccurate** – Conflicts with available evidence.
+   * ❓ **Unverifiable** – Insufficient evidence found.
+5. **Report** – Users receive a structured verification report with explanations for every claim.
+
+---
+
+## Key Features
+
+* PDF-based fact checking
+* Automated claim extraction
+* Live web verification
+* Detailed verification logs
+* Modern, user-friendly interface
+* Parallel claim processing for faster analysis
+
+---
 
 ## Tech Stack
-| Layer | Tool |
-|-------|------|
-| Frontend | Streamlit |
-| AI Model | Google Gemini 2.0 Flash |
-| Web Search | Serper API |
-| PDF Parsing | pdfplumber |
-| Deployment | Streamlit Cloud |
+
+| Layer       | Technology                     |
+| ----------- | ------------------------------ |
+| Frontend    | Streamlit                      |
+| AI Model    | Groq (Llama 3.3 70B Versatile) |
+| Web Search  | Serper API                     |
+| PDF Parsing | pdfplumber                     |
+| Deployment  | Streamlit Cloud                |
+| Concurrency | ThreadPoolExecutor             |
+
+---
 
 ## Running Locally
 
+Clone the repository:
+
 ```bash
-git clone https://github.com/YOUR_USERNAME/veridox.git
-cd veridox
+git clone https://github.com/YOUR_USERNAME/factcheck-ai.git
+cd factcheck-ai
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-Add your API keys in `.streamlit/secrets.toml`:
+Create `.streamlit/secrets.toml` and add:
+
 ```toml
-GEMINI_API_KEY = "your_key_here"
-SERPER_API_KEY = "your_key_here"
+GROQ_API_KEY = "your_groq_api_key"
+SERPER_API_KEY = "your_serper_api_key"
 ```
 
-Then run:
+Run the application:
+
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-*Submission for CogCulture PM Trainee Assessment — Part 2*
+## Future Improvements
+
+* Batch verification to further reduce response time
+* Source citations for every verdict
+* Exportable PDF verification reports
+* Support for DOCX and PPT uploads
+* Confidence scoring for each claim
+
+---
+
+## Assessment Context
+
+This project was developed as part of the **CogCulture Product Management Trainee Assessment** to demonstrate problem-solving ability, product thinking, technical execution, and rapid prototyping.
+
+The objective was to design a solution that addresses a real-world pain point using AI while maintaining a simple and intuitive user experience.
